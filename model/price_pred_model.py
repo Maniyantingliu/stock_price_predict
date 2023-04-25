@@ -25,10 +25,13 @@ class PricePredModel(nn.Module):
         self.loss_fcn = nn.MSELoss()
     
     def forward(self, batch_inputs):
-        bert_output = self.bert_encoder(input_ids=torch.unsqueeze(torch.tensor(batch_inputs[:, 0, 0]),dim=0))
-        batch_seq_repr = self.dropout(torch.mean(bert_output[0], dim=1))
-        lstm_inputs = torch.unsqueeze(torch.cat([batch_seq_repr, \
-                                                 torch.unsqueeze(torch.tensor(batch_inputs[:, 0, 1]),dim=0)], dim=1), dim=0)
+        batch_seq_repr = []
+        for i in range(len(batch_inputs)):
+            bert_output = self.bert_encoder(input_ids=batch_inputs[i,:,:-2].long())
+            batch_seq_repr.append(bert_output[0])
+        batch_seq_repr = torch.stack(batch_seq_repr)
+        batch_seq_repr = self.dropout(torch.mean(batch_seq_repr, dim=1))
+        lstm_inputs = torch.cat([batch_seq_repr, batch_inputs[:,:,-2]], dim=1)
 
         lstm_outputs = self.lstm_module(lstm_inputs)
         batch_price_pred = self.output_module(lstm_outputs[0])

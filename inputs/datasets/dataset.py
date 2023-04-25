@@ -14,16 +14,20 @@ class Dataset():
         new_data = []
         for i in range(1, len(original_data)):
             tokens = tokenizer.tokenize(original_data['news'][i])
-            seq_index = [ vocab.get_token_index(token) for token in tokens] + [0] * (max_seq_length - len(tokens))
-            new_data.append([seq_index, original_data['price'][i]])
+            if len(tokens) > max_seq_length:
+                seq_index = [ vocab.get_token_index(token) for token in tokens][:max_seq_length]
+            else:
+                seq_index = [ vocab.get_token_index(token) for token in tokens] + [0] * (max_seq_length - len(tokens))
+            new_data.append([seq_index + original_data['price'][i]])
         data_nums = len(new_data)
         X, Y = [], []
-        for i in range(data_nums-time_step-pred_step):
-            print(type(np.array(new_data)[i:i+time_step, :-1]))
-            X.append(np.array(new_data)[i:i+time_step, :-1])
+        for i in range(data_nums - time_step - pred_step):
+            X.append(np.array(new_data)[i:i+time_step, :])
             Y.append(np.array(new_data)[i+time_step:i+time_step+pred_step, -1])
-        
-        return X, Y
+        results = []
+        for x, y in zip(X, Y):
+            results.append(x + y)
+        return torch.squeeze(torch.tensor(results))
     
     def __len__(self):
         return len(self.data)
