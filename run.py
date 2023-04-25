@@ -1,5 +1,5 @@
 import argparse
-from transformers import BertTokenizerFast, AdamW, get_linear_schedule_with_warmup
+from transformers import BertTokenizerFast, AdamW
 from collections import defaultdict
 from model.price_pred_model import PricePredModel
 from inputs.vocabulary import Vocabulary
@@ -49,8 +49,8 @@ def train(model, cfg, train_dataloader, test_dataloader):
                       betas=(cfg.adam_beta1, cfg.adam_beta2),
                       lr=cfg.learning_rate,
                       eps=cfg.adam_epsilon,
-                      weight_decay=cfg.adam_weight_decay_rate,
-                      correct_bias=False)
+                      correct_bias=False,
+                      no_deprecation_warning=True)
     model.zero_grad()
 
     for epoch, batch in enumerate(train_dataloader): 
@@ -72,23 +72,28 @@ def main():
     parser.add_argument("--dropout", type=float, default=0)
     parser.add_argument("--bert_model_name", type=str, default="bert-base-uncased")
     parser.add_argument("--num_layers", type=int, default=1)
-    parser.add_argument("--data_dir", type=str)
-    parser.add_argument("--train_file", type=str)
-    parser.add_argument("--test_file", type=str)
+    parser.add_argument("--data_dir", type=str, default="data")
+    parser.add_argument("--train_file", type=str, default="news_price_file.csv")
+    parser.add_argument("--test_file", type=str, default="news_price_file.csv")
     parser.add_argument("--time_step", type=int, default=30)
     parser.add_argument("--pred_step", type=int, default=1)
     parser.add_argument("--batch_size", type=int, default=16)
     parser.add_argument("--epoch", type=int, default=100)
     parser.add_argument("--max_seq_length", type=int, default=512)
+    parser.add_argument("--learning_rate", type=float, default=5e-5)
+    parser.add_argument("--adam_beta1", type=float, default=0.99)
+    parser.add_argument("--adam_beta2", type=float, default=0.1)
+    parser.add_argument("--adam_epsilon", type=float, default=5e-12)
     parser.add_argument("test", action="store_true")
     cfg = parser.parse_args()
 
     model = PricePredModel(cfg)
     tokenizer = BertTokenizerFast.from_pretrained(cfg.bert_model_name)
-
+    print(os.path.join(cfg.data_dir, cfg.train_file))
     file_list= [os.path.join(cfg.data_dir, cfg.train_file), os.path.join(cfg.data_dir, cfg.test_file)]
     counter = get_counter(file_list, tokenizer)
     vocab = Vocabulary(counter)
+    tokenizer.add_tokens(list(vocab.vocab.keys()))
     train_dataset = Dataset(cfg, cfg.train_file, tokenizer, vocab)
     test_dataset = Dataset(cfg, cfg.test_file, tokenizer, vocab)
 

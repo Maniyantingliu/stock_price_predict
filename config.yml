@@ -1,0 +1,12 @@
+dropout: 0.1
+
+bert_model_name: bert-base-uncased
+num_layers: 2
+data_dir: data
+train_file: news_price_file.csv
+test_file: news_price_file.csv
+time_step: 30
+pred_step: 1
+batch_size: 16
+epoch: 100
+max_seq_length: 512
