@@ -11,6 +11,11 @@ import os
 import json
 import pandas as pd
 import logging
+import torch, gc
+
+gc.collect()
+torch.cuda.empty_cache()
+
 
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.DEBUG)
@@ -72,18 +77,19 @@ def train(model, cfg, train_dataloader, test_dataloader):
                       no_deprecation_warning=True)
     
     model.zero_grad()
+    for i in range(cfg.epoch):
+        for batch_id, batch in enumerate(train_dataloader): 
+            model.train()  
+            if cfg.device > -1:
+                batch=batch.cuda(device=cfg.device, non_blocking=True)
+            output = model(batch)
+            loss = output["loss"]
+            logger.info(
+                "Epoch: {} Batch_id: {} Loss: {}".format(i+1, batch_id, loss))
 
-    for batch in train_dataloader: 
-        model.train()  
-        if cfg.device > -1:
-            batch=batch.cuda(device=cfg.device, non_blocking=True)
-        loss = model(batch)
-        logger.info(
-            "Loss: {}".format(loss.item()))
-
-        loss.backward()  
-        optimizer.step()
-        model.zero_grad()
+            loss.backward()  
+            optimizer.step()
+            model.zero_grad()
 
 
     test(model, cfg, test_dataloader)
@@ -96,22 +102,21 @@ def main():
     parser.add_argument("--data_dir", type=str, default="data")
     parser.add_argument("--train_file", type=str, default="news_price_file.csv")
     parser.add_argument("--test_file", type=str, default="news_price_file.csv")
-    parser.add_argument("--time_step", type=int, default=30)
-    parser.add_argument("--pred_step", type=int, default=1)
+    parser.add_argument("--time_step", type=int, default=15)
+    parser.add_argument("--pred_step", type=int, default=2)
     parser.add_argument("--batch_size", type=int, default=1)
     parser.add_argument("--epoch", type=int, default=100)
     parser.add_argument("--max_seq_length", type=int, default=512)
     parser.add_argument("--learning_rate", type=float, default=5e-5)
-    parser.add_argument("--adam_beta1", type=float, default=0.99)
-    parser.add_argument("--adam_beta2", type=float, default=0.1)
-    parser.add_argument("--adam_epsilon", type=float, default=5e-12)
+    parser.add_argument("--adam_beta1", type=float, default=0.9)
+    parser.add_argument("--adam_beta2", type=float, default=0.9)
+    parser.add_argument("--adam_epsilon", type=float, default=1e-12)
     parser.add_argument("--device", type=int, default=1)
     parser.add_argument("test", action="store_true")
     cfg = parser.parse_args()
 
     model = PricePredModel(cfg)
     tokenizer = BertTokenizerFast.from_pretrained(cfg.bert_model_name)
-    # print(os.path.join(cfg.data_dir, cfg.train_file))
     file_list= [os.path.join(cfg.data_dir, cfg.train_file), os.path.join(cfg.data_dir, cfg.test_file)]
     counter = get_counter(file_list, tokenizer)
     vocab = Vocabulary(counter)
